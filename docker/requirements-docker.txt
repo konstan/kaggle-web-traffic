@@ -5,5 +5,4 @@ sklearn
 tqdm
 numba
 matplotlib
-tensorflow-gpu==1.4.1
-
+jupyterlab

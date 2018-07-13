@@ -64,7 +64,8 @@ def make_encoder(time_inputs, encoder_features_depth, is_train, hparams, seed, t
     """
 
     def build_rnn():
-        return RNN(num_layers=hparams.encoder_rnn_layers, num_units=hparams.rnn_depth,
+        return RNN(num_layers=hparams.encoder_rnn_layers,
+                   num_units=hparams.rnn_depth,
                    input_size=encoder_features_depth,
                    direction='unidirectional',
                    dropout=hparams.encoder_dropout if is_train else 0, seed=seed)
