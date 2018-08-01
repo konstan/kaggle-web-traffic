@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt-get install -y --no-install-recommends \
         python3.6 \
         python3.6-dev \
-        pylint3 && \
+        git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -58,6 +58,9 @@ COPY jupyter/run_jupyter.sh /
 
 # For CUDA profiling, TensorFlow requires CUPTI.
 ENV LD_LIBRARY_PATH /usr/local/cuda/extras/CUPTI/lib64:$LD_LIBRARY_PATH
+
+# For Jupyter terminal
+ENV SHELL /bin/bash
 
 # TensorBoard
 EXPOSE 6006

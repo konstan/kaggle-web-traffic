@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         add-apt-repository ppa:deadsnakes/ppa && apt-get update && apt-get install -y --no-install-recommends \
         python3.6 \
         python3.6-dev \
-        pylint3 && \
+        git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -55,6 +55,9 @@ RUN mkdir /home/user
 #   https://github.com/ipython/ipython/issues/7062
 # We just add a little wrapper script.
 COPY jupyter/run_jupyter.sh /
+
+# For Jupyter terminal
+ENV SHELL /bin/bash
 
 # TensorBoard
 EXPOSE 6006

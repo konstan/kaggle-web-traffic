@@ -16,8 +16,9 @@ def read_cached(name) -> pd.DataFrame:
     :param name: file name without extension
     :return: file content
     """
+    ##vk: reminder: .csv file is organized as: rows are webpages+info, columns: dates, values: number of webpage visits on that date
     cached = 'data/%s.pkl' % name
-    sources = ['data/%s.csv' % name, 'data/%s.csv.zip' % name]
+    sources = ['data/%s.csv' % name, 'data/%s.csv.zip' % name]  ##vk: read either .csv of zipped .csv
     if os.path.exists(cached):
         return pd.read_pickle(cached)
     else:
@@ -34,7 +35,7 @@ def read_all() -> pd.DataFrame:
     """
     def read_file(file):
         df = read_cached(file).set_index('Page')
-        df.columns = df.columns.astype('M8[D]')
+        df.columns = df.columns.astype('M8[D]')  ##vk: datetime64, days (?)
         return df
 
     # Path to cached data
@@ -50,12 +51,13 @@ def read_all() -> pd.DataFrame:
         df[pd.Timestamp('2017-09-10')] = scraped['2017-09-10']
         df[pd.Timestamp('2017-09-11')] = scraped['2017-09-11']
 
-        df = df.sort_index()
+        df = df.sort_index() ##vk: sort dataframe by index (webpage?)
         # Cache result
         df.to_pickle(path)
     return df
 
 # todo:remove
+##vk: usage of this function, make_holidays(), not found.
 def make_holidays(tagged, start, end) -> pd.DataFrame:
     def read_df(lang):
         result = pd.read_pickle('data/holidays/%s.pkl' % lang)
@@ -75,8 +77,9 @@ def read_x(start, end) -> pd.DataFrame:
     df = read_all()
     # User GoogleAnalitycsRoman has really bad data with huge traffic spikes in all incarnations.
     # Wikipedia banned him, we'll ban it too
+    ##vk: Following returns boolean Series/array indicating whether each string in the Series/Index starts with passed pattern
     bad_roman = df.index.str.startswith("User:GoogleAnalitycsRoman")
-    df = df[~bad_roman]
+    df = df[~bad_roman]  ##vk: tilde operator means bitwise not, inversing boolean mask.
     if start and end:
         return df.loc[:, start:end]
     elif end:
@@ -85,7 +88,7 @@ def read_x(start, end) -> pd.DataFrame:
         return df
 
 
-@numba.jit(nopython=True)
+@numba.jit(nopython=True)  ##vk: jit decorator tells Numba to compile this function. https://numba.pydata.org/
 def single_autocorr(series, lag):
     """
     Autocorrelation for single data series
@@ -93,6 +96,7 @@ def single_autocorr(series, lag):
     :param lag: lag, days
     :return:
     """
+    ##vk: https://en.wikipedia.org/wiki/Autocorrelation
     s1 = series[lag:]
     s2 = series[:-lag]
     ms1 = np.mean(s1)
@@ -116,8 +120,8 @@ def batch_autocorr(data, lag, starts, ends, threshold, backoffset=0):
     :return: autocorrelation, shape [n_series]. If series is too short (support less than threshold),
     autocorrelation value is NaN
     """
-    n_series = data.shape[0]
-    n_days = data.shape[1]
+    n_series = data.shape[0] ##vk: n_rows, i.e. number of webpages
+    n_days = data.shape[1]   ##vk: n_columns, i.e. number  of days
     max_end = n_days - backoffset
     corr = np.empty(n_series, dtype=np.float64)
     support = np.empty(n_series, dtype=np.float64)
@@ -132,6 +136,7 @@ def batch_autocorr(data, lag, starts, ends, threshold, backoffset=0):
             c_364 = single_autocorr(series, lag-1)
             c_366 = single_autocorr(series, lag+1)
             # Average value between exact lag and two nearest neighborhs for smoothness
+            ##vk: wow! what does it actually give?
             corr[i] = 0.5 * c_365 + 0.25 * c_364 + 0.25 * c_366
         else:
             corr[i] = np.NaN
@@ -146,19 +151,19 @@ def find_start_end(data: np.ndarray):
     :param data: Time series, shape [n_pages, n_days]
     :return:
     """
-    n_pages = data.shape[0]
-    n_days = data.shape[1]
-    start_idx = np.full(n_pages, -1, dtype=np.int32)
-    end_idx = np.full(n_pages, -1, dtype=np.int32)
+    n_pages = data.shape[0]  ##vk: number of rows
+    n_days = data.shape[1]   ##vk: number of columns, i.e. 1 column = 1 day
+    start_idx = np.full(n_pages, -1, dtype=np.int32) ##vk: Return a new array of given shape (n_pages) and type, filled with -1
+    end_idx = np.full(n_pages, -1, dtype=np.int32)   ##vk: Return a new array of given shape (n_pages) and type, filled with -1
     for page in range(n_pages):
         # scan from start to the end
         for day in range(n_days):
-            if not np.isnan(data[page, day]) and data[page, day] > 0:
+            if not np.isnan(data[page, day]) and data[page, day] > 0:  ##vk: non-zero, non-NaN value
                 start_idx[page] = day
                 break
         # reverse scan, from end to start
         for day in range(n_days - 1, -1, -1):
-            if not np.isnan(data[page, day]) and data[page, day] > 0:
+            if not np.isnan(data[page, day]) and data[page, day] > 0:  ##vk: non-zero, non-NaN value
                 end_idx[page] = day
                 break
     return start_idx, end_idx
@@ -176,11 +181,29 @@ def prepare_data(start, end, valid_threshold) -> Tuple[pd.DataFrame, pd.DataFram
     df = read_x(start, end)
     starts, ends = find_start_end(df.values)
     # boolean mask for bad (too short) series
+    ##vk: (ends-starts)/(number of columns in df). Probably considered 1 column = 1 day
+    ##vk: ends & starts have size of n_pages -> skip/mask _pages_ which real time length vs. entire interval < threshold
     page_mask = (ends - starts) / df.shape[1] < valid_threshold
+
+    from datetime import datetime
+    datestart = datetime.strptime(start, '%Y-%m-%d') ##vk: e.g. 2017-01-01
+    dateend= datetime.strptime(end, '%Y-%m-%d')      ##vk: e.g. 2017-05-01
+    print(datestart, dateend)
+    print("end-start: ", dateend - datestart)
+    print("shape: ", df.shape[1])
+
     print("Masked %d pages from %d" % (page_mask.sum(), len(df)))
     inv_mask = ~page_mask
     df = df[inv_mask]
+
+    ##vk: pd.isnull() detects missing values for an array-like object.
+    ##vk: returns an array of boolean indicating whether each corresponding element is missing
     nans = pd.isnull(df)
+
+    ##vk: df.fillna() fills NA/NaN values with 0
+    ##vk: np.log1p() returns the natural logarithm of one plus the input array, element-wise.
+    ##vk: log1p is accurate also for x so small that 1 + x == 1 in floating-point accuracy.
+    ##vk: e.g. np.log1p(1e-99)=1e-99 while np.log(1 + 1e-99)=0.0
     return np.log1p(df.fillna(0)), nans, starts[inv_mask], ends[inv_mask]
 
 
@@ -255,7 +278,7 @@ def encode_page_features(df) -> Dict[str, pd.DataFrame]:
     return {str(column): encode(column) for column in df}
 
 
-def normalize(values: np.ndarray):
+def normalize(values: np.ndarray):   ##vk: function to normalize values
     return (values - values.mean()) / np.std(values)
 
 
@@ -273,7 +296,7 @@ def run():
     df, nans, starts, ends = prepare_data(args.start, args.end, args.valid_threshold)
 
     # Our working date range
-    data_start, data_end = df.columns[0], df.columns[-1]
+    data_start, data_end = df.columns[0], df.columns[-1] ##vk: [-1] means last index :-)
 
     # We have to project some date-dependent features (day of week, etc) to the future dates for prediction
     features_end = data_end + pd.Timedelta(args.add_days, unit='D')
@@ -342,6 +365,8 @@ def run():
     )
 
     # Store data to the disk
+    ##vk: poorly documented feeder project: https://pypi.org/project/feeder/, https://github.com/nir0s/feedr
+    ##vk: feeder generates events/logs using a specified formatter and sends them using the specified transport.
     VarFeeder(args.data_dir, tensors, plain)
 
 
