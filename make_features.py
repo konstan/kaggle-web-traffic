@@ -124,13 +124,12 @@ def batch_autocorr(data, lag, starts, ends, threshold, backoffset=0):
     n_days = data.shape[1]   ##vk: n_columns, i.e. number  of days
     max_end = n_days - backoffset
     corr = np.empty(n_series, dtype=np.float64)
-    support = np.empty(n_series, dtype=np.float64)
     for i in range(n_series):
         series = data[i]
         end = min(ends[i], max_end)
         real_len = end - starts[i]
-        support[i] = real_len/lag
-        if support[i] > threshold:
+        support = real_len/lag
+        if support > threshold:
             series = series[starts[i]:end]
             c_365 = single_autocorr(series, lag)
             c_364 = single_autocorr(series, lag-1)
@@ -140,7 +139,7 @@ def batch_autocorr(data, lag, starts, ends, threshold, backoffset=0):
             corr[i] = 0.5 * c_365 + 0.25 * c_364 + 0.25 * c_366
         else:
             corr[i] = np.NaN
-    return corr #, support
+    return corr
 
 
 @numba.jit(nopython=True)
