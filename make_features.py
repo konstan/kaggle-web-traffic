@@ -89,7 +89,7 @@ def read_x(start, end) -> pd.DataFrame:
 
 
 @numba.jit(nopython=True)  ##vk: jit decorator tells Numba to compile this function. https://numba.pydata.org/
-def single_autocorr(series, lag):
+def single_autocorr(series: np.ndarray, lag: int) -> float:
     """
     Autocorrelation for single data series
     :param series: traffic series
@@ -104,7 +104,26 @@ def single_autocorr(series, lag):
     ds1 = s1 - ms1
     ds2 = s2 - ms2
     divider = np.sqrt(np.sum(ds1 * ds1)) * np.sqrt(np.sum(ds2 * ds2))
-    return np.sum(ds1 * ds2) / divider if divider != 0 else 0
+    return np.sum(ds1 * ds2) / divider if divider != 0 else 0.0
+
+
+def smoothed_autocorr(series: np.ndarray, lag: int) -> float:
+    """Returns auto-correlation of the 'series' smoothed around the 'lag'.
+    Two nearest neighbours are used for smoothing.
+
+    From the author:
+    ... I averaged important points with their neighbors to reduce noise and
+    compensate uneven intervals (leap years, different month lengths) ...
+    Then I realized that 0.25,0.5,0.25 is a 1D convolutional kernel (length=3)
+    and I can automatically learn bigger kernel to detect important points
+    in a past.
+    """
+    c_lag = single_autocorr(series, lag)
+    c_lag_left = single_autocorr(series, lag - 1)
+    c_lag_right = single_autocorr(series, lag + 1)
+    # Average value between exact lag and two nearest neighbors for smoothness.
+    ##vk: wow! what does it actually give?
+    return 0.25 * c_lag_left + 0.5 * c_lag + 0.25 * c_lag_right
 
 
 @numba.jit(nopython=True)
@@ -130,13 +149,7 @@ def batch_autocorr(data, lag, starts, ends, threshold, backoffset=0):
         real_len = end - starts[i]
         support = real_len/lag
         if support > threshold:
-            series = series[starts[i]:end]
-            c_365 = single_autocorr(series, lag)
-            c_364 = single_autocorr(series, lag-1)
-            c_366 = single_autocorr(series, lag+1)
-            # Average value between exact lag and two nearest neighborhs for smoothness
-            ##vk: wow! what does it actually give?
-            corr[i] = 0.5 * c_365 + 0.25 * c_364 + 0.25 * c_366
+            corr[i] = smoothed_autocorr(series, lag)
         else:
             corr[i] = np.NaN
     return corr
