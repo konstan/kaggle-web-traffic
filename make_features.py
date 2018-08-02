@@ -197,12 +197,13 @@ def prepare_data(start, end, valid_threshold) -> Tuple[pd.DataFrame, pd.DataFram
     ##vk: ends & starts have size of n_pages -> skip/mask _pages_ which real time length vs. entire interval < threshold
     page_mask = (ends - starts) / df.shape[1] < valid_threshold
 
-    from datetime import datetime
-    datestart = datetime.strptime(start, '%Y-%m-%d') ##vk: e.g. 2017-01-01
-    dateend= datetime.strptime(end, '%Y-%m-%d')      ##vk: e.g. 2017-05-01
-    print(datestart, dateend)
-    print("end-start: ", dateend - datestart)
-    print("shape: ", df.shape[1])
+    if start and end:
+        from datetime import datetime
+        datestart = datetime.strptime(start, '%Y-%m-%d') ##vk: e.g. 2017-01-01
+        dateend= datetime.strptime(end, '%Y-%m-%d')      ##vk: e.g. 2017-05-01
+        print(datestart, dateend)
+        print("end - start = ", dateend - datestart)
+        print("shape 1 (# of columns): ", df.shape[1])
 
     print("Masked %d pages from %d" % (page_mask.sum(), len(df)))
     inv_mask = ~page_mask
