@@ -377,8 +377,7 @@ def run():
     )
 
     # Store data to the disk
-    ##vk: poorly documented feeder project: https://pypi.org/project/feeder/, https://github.com/nir0s/feedr
-    ##vk: feeder generates events/logs using a specified formatter and sends them using the specified transport.
+    ##vk: see feeder.py
     VarFeeder(args.data_dir, tensors, plain)
 
 
